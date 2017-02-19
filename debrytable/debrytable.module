@@ -1,0 +1,212 @@
+<?php 
+/*
+ * DerbyTable is a custom table to manage table valus for any database
+ */
+function debrytable_init(){ 
+  
+}
+
+function debrytable_permission(){
+    return array(
+        'administer debrytable' => array(
+          'title' => t('Administer DebryTable'),
+          'description' => t('Perform administration tasks for debryTable.'),
+        ),
+      );
+};
+
+/*
+ * Menu hook for creating ajax pages and others. 
+ */
+function debrytable_menu(){
+    $items = array(); 
+    $items['admin/debry'] = array(
+        'title' => t('Debry Table'),
+        'page callback' => 'clb_derby_table',
+        'access arguments' => array('administer debrytable'),
+        'type' => MENU_NORMAL_ITEM,
+    );
+    
+    $items['admin/debry'] = array(
+        'title' => t('Debry Tables'),
+        'page callback' => 'clb_debry_debry_tables',
+        'access arguments' => array('administer debrytable'),
+        'type' => MENU_NORMAL_ITEM,
+    );
+    
+    $items['admin/debry/ups_services'] = array(
+        'title' => t('Shipment Types'),
+        'page callback' => 'clb_debry_ups_tomauri_shipments_type',
+        'access arguments' => array('administer debrytable'),
+        'type' => MENU_NORMAL_ITEM,
+    );
+    
+    return $items;
+}
+/*
+ * Serivice functions A
+ */
+function format_field_title($field_name){
+    $temp = explode('_',$field_name);
+    $name = implode(' ',$temp);
+    return ucfirst($name);
+}
+/*
+ * Z
+ */
+function clb_derby_table(){
+    $output = '';
+    $temp = drupal_get_form('frm_table_list');
+    $output .= drupal_render($temp);
+    return $output; 
+}
+
+/* 
+ * List of debry tables
+ */
+function clb_debry_debry_tables(){
+    $output = '';
+    
+    return $output; 
+}
+
+function frm_table_list(){
+    $form = array();
+    $form['derby_tables'][] = array(
+        '#type'=>'textfield',
+        '#default_value'=> ''
+    );
+    $tables = variable_get('derby_tables',array());
+    if(!empty($tables) && is_array($tables)){
+        foreach($tables AS $table){
+            $form['derby_tables'][] = array(
+                '#type'=>'textfield',
+                '#default_value'=> ''
+            );
+        }
+    }
+    return system_settings_form($form);
+}
+
+/* all drupal debries here */
+function clb_debry_ups_tomauri_shipments_type(){
+    $output = '';
+    
+    $rows = db_select('ups_tomauri_shipments_type','utst')
+            ->fields('utst')
+            ->execute()
+            ->fetchAll();
+    $cols = db_query("SHOW COLUMNS FROM `ups_tomauri_shipments_type`")->fetchAll();
+    if(!empty($cols) && is_array($cols)){
+        $fields = array();        
+        foreach($cols AS $c){
+            if(!empty($c->Field)){
+                $fields[] = t(format_field_title($c->Field));
+            }
+        }
+        $fields[] = 'Edit'; 
+        $fields[] = 'Delete'; 
+    }
+    
+    $data = array();
+    if(!empty($rows) && is_array($rows)){
+        foreach($rows AS $k=>$row){
+            $row->edit = l('Edit','/admin/tables/ups_services/edit/'.$row->id);
+            $row->delete = l('Delete','/admin/tables/ups_services/delete/'.$row->id);
+            $data[] = (array)($row);
+        }        
+    }
+    
+    $variables = array(
+        'header' => $fields,
+        'rows' => (array)$data,
+        'attributes' => array('class'=>array('gridtable debryTable')),
+        'caption' => 'Debry Table',
+        'colgroups' => '',
+        'sticky' => '',
+        'empty' => 'Table is empty'
+    );
+    
+    $temp = drupal_get_form('debry_ups_tomauri_shipments_type_form',$cols);
+    $output .= drupal_render($temp);
+    
+    $output .= theme_table($variables);
+    return $output;
+}
+
+
+/*
+ * Dynamic form for insert/update
+ */
+function debry_ups_tomauri_shipments_type_form($form, &$form_state, $cols){            
+    $form = array();
+    if(!empty($cols) && is_array($cols)){
+        $form['fieldset'] = array(
+            '#type' => 'fieldset',
+            '#title' => 'Insert/Update Table',
+            '#collapsed' => TRUE, 
+            '#collapsible' => TRUE
+        );
+        foreach($cols AS $col){           
+            if($col->Extra === 'auto_increment') continue; 
+            
+            if(strpos($col->Type,'int') === 0 || strpos($col->Type, 'varchar') === 0) {
+                $form['fieldset'][$col->Field] = array(
+                    '#type' => 'textfield',
+                    '#title' => format_field_title($col->Field),
+                    '#default_value' => '',
+                    '#required' => TRUE,
+                );
+            }            
+            if(strpos($col->Type,'enum') === 0){
+                $form['fieldset'][$col->Field] = array(
+                    '#type' => 'radios',
+                    '#title' => format_field_title($col->Field),
+                    '#default_value' => '1',
+                    '#required' => TRUE,
+                    '#options' => array('1'=>'Enabled','0'=>'Disabled'),
+                );
+            }            
+        }
+        $form['fieldset']['submit'] = array(
+            '#type' => 'submit',
+            '#value' => t('Insert'),
+        );
+    }
+    return $form;
+}
+
+
+/*
+ * Validate the dynamic form
+ */
+function debry_ups_tomauri_shipments_type_form_validate($form, &$form_state){
+    
+}
+
+/*
+ * Submit the dynamic form
+ */
+function debry_ups_tomauri_shipments_type_form_submit($form, &$form_state){
+    $table_name = 'ups_tomauri_shipments_type';
+    $cols = db_query("SHOW COLUMNS FROM $table_name")->fetchAll();
+    $fields = array();
+    if(!empty($cols) && is_array($cols)){
+        foreach($cols AS $col){
+           $fields[] = $col->Field; 
+        }           
+    }
+    
+    if(!empty($form_state['values'])){
+        $data = array();
+        foreach($form_state['values'] AS $key => $value){
+            if(in_array($key,$fields)){
+                $data[$key] = $value;
+            }            
+        }
+        $flag = db_insert($table_name)->fields($data)->execute();
+        if($flag){
+            drupal_set_message(t('Information inserted successfully'),'status');
+        }
+    }
+}

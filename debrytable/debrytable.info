@@ -1,0 +1,8 @@
+name = DebryTable
+description = Drupal table manager
+author = Mohammad Ullah Al Kafi
+scripts[] = js/debryTable.js
+stylesheets[all][] = css/debryTable.css
+version = MUK.001;
+core = 7.x
+package = M U Kafi
